@@ -4,10 +4,20 @@ const express = require("express");
 const bodyParser = require("body-parser");
 const ejs = require("ejs");
 const _ = require("lodash");
+const mongoose = require("mongoose");
+
+mongoose.connect("mongodb://localhost/myBlog", { useNewUrlParser: true,  useUnifiedTopology: true});
 
 const homeStartingContent = "Lacus vel facilisis volutpat est velit egestas dui id ornare. Semper auctor neque vitae tempus quam. Sit amet cursus sit amet dictum sit amet justo. Viverra tellus in hac habitasse. Imperdiet proin fermentum leo vel orci porta. Donec ultrices tincidunt arcu non sodales neque sodales ut. Mattis molestie a iaculis at erat pellentesque adipiscing. Magnis dis parturient montes nascetur ridiculus mus mauris vitae ultricies. Adipiscing elit ut aliquam purus sit amet luctus venenatis lectus. Ultrices vitae auctor eu augue ut lectus arcu bibendum at. Odio euismod lacinia at quis risus sed vulputate odio ut. Cursus mattis molestie a iaculis at erat pellentesque adipiscing.";
 const aboutContent = "Hac habitasse platea dictumst vestibulum rhoncus est pellentesque. Dictumst vestibulum rhoncus est pellentesque elit ullamcorper. Non diam phasellus vestibulum lorem sed. Platea dictumst quisque sagittis purus sit. Egestas sed sed risus pretium quam vulputate dignissim suspendisse. Mauris in aliquam sem fringilla. Semper risus in hendrerit gravida rutrum quisque non tellus orci. Amet massa vitae tortor condimentum lacinia quis vel eros. Enim ut tellus elementum sagittis vitae. Mauris ultrices eros in cursus turpis massa tincidunt dui.";
 const contactContent = "Scelerisque eleifend donec pretium vulputate sapien. Rhoncus urna neque viverra justo nec ultrices. Arcu dui vivamus arcu felis bibendum. Consectetur adipiscing elit duis tristique. Risus viverra adipiscing at in tellus integer feugiat. Sapien nec sagittis aliquam malesuada bibendum arcu vitae. Consequat interdum varius sit amet mattis. Iaculis nunc sed augue lacus. Interdum posuere lorem ipsum dolor sit amet consectetur adipiscing elit. Pulvinar elementum integer enim neque. Ultrices gravida dictum fusce ut placerat orci nulla. Mauris in aliquam sem fringilla ut morbi tincidunt. Tortor posuere ac ut consequat semper viverra nam libero.";
+
+const postSchema = {
+  title: String,
+  content: String,
+};
+
+const Post = mongoose.model("Post", postSchema);
 
 const app = express();
 
@@ -17,11 +27,13 @@ app.use(bodyParser.urlencoded({extended: true}));
 app.use(express.static("public"));
 
 const posts = [];
-// {title: "Day 1", content: "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum."}, {title: "SomeThing-BeaUtiful plAy", content: "Lorem ipsum, or lipsum as it is sometimes known, is dummy text used in laying out print, graphic or web designs. The passage is attributed to an unknown typesetter in the 15th century who is thought to have scrambled parts of Cicero's De Finibus Bonorum et Malorum for use in a type specimen book. It usually begins with"}, {title: "dAy-3 GreatestDay of MY life", content:"The placeholder text, beginning with the line “Lorem ipsum dolor sit amet, consectetur adipiscing elit”, looks like Latin because in its youth, centuries ago, it was Latin.y"}
 
 app.get("/", function(req, res){
 
-  res.render("home", {homeContent: homeStartingContent, posts:posts});
+Post.find({}, function(err, foundPosts){
+  res.render("home", {homeContent: homeStartingContent, posts: foundPosts});
+});
+
 });
 
 app.get("/contact", function(req, res){
@@ -37,29 +49,49 @@ app.get("/compose", function(req, res){
 });
 
 app.post("/compose", function(req, res){
-  let post = {
+  const post = new Post({
     title: req.body.newEntryTitle,
     content: req.body.newEntryContent
-  }
+  });
 
-  posts.push(post);
+  post.save(function(err){
+    if(!err){
+      res.redirect("/");
+    }
+  });
 
-  res.redirect("/");
 
 });
 
 app.get("/posts/:title", function(req, res){
-  let requestedTitle = _.kebabCase(req.params.title.toLowerCase());
-  posts.forEach(function(post){
-    let requiredTitle = _.kebabCase(post.title.toLowerCase());
-    if(requestedTitle === requiredTitle){
-      // console.log("Match Found");
-      res.render("post", {title: post.title, content: post.content});
+  let requestedTitle = req.params.title;
+
+  Post.findOne({_id: requestedTitle}, function(err, foundPost){
+    if(!err){
+      if(foundPost){
+        res.render("post", {title: foundPost.title, content: foundPost.content, id: foundPost._id});
+      }else{
+        alert("The page you are looking for doesn't exist!");
+        res.redirect("/");
+      }
     }
-  })
+  });
+
+
 });
 
 
-app.listen(3000, function(some) {
+app.post("/delete-post", function(req, res){
+  const postId = req.body.deleteButton;
+
+  Post.deleteOne({_id: postId}, function(err){
+    if(!err){
+      res.redirect("/");
+    }
+  });
+
+});
+
+app.listen(process.env.PORT || 3000, function() {
   console.log("Server started on port 3000");
 });
